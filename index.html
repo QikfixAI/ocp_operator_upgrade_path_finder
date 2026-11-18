@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operator Upgrade Path &mdash; rhods-operator</title>
+<style>
+  :root {
+    --bg: #f4f4f6;
+    --panel: #ffffff;
+    --ink: #151515;
+    --muted: #6a6e73;
+    --line: #d2d2d7;
+    --accent: #ee0000;
+    --accent-dark: #a30000;
+    --ok: #3d7317;
+    --ok-bg: #f3faee;
+    --warn: #795600;
+    --warn-bg: #fdf7e7;
+    --err: #a30000;
+    --err-bg: #faeaea;
+    --info: #0066cc;
+    --info-bg: #e7f1fa;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 15px/1.5 "Red Hat Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  header {
+    background: #151515;
+    color: #fff;
+    padding: 20px 28px;
+    border-bottom: 3px solid var(--accent);
+    display: flex; align-items: center; justify-content: space-between; gap: 20px;
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: .2px; }
+  header p { margin: 4px 0 0; color: #b8bbbe; font-size: 13px; }
+  header nav { display: flex; gap: 10px; align-items: center; }
+  /* scoped to the nav, so the title link below is not styled as a button */
+  header nav a {
+    color: #fff; font-size: 13px; font-weight: 600; text-decoration: none;
+    border: 1px solid #5a5d61; border-radius: 4px; padding: 7px 14px; white-space: nowrap;
+  }
+  header nav a:hover { background: var(--accent); border-color: var(--accent); }
+  header h1 a { color: inherit; text-decoration: none; }
+  header h1 a:hover {
+    text-decoration: underline; text-decoration-color: var(--accent);
+    text-decoration-thickness: 2px; text-underline-offset: 4px;
+  }
+  header h1 a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 3px; }
+
+  .lead { margin: 0 0 18px; font-size: 14.5px; color: #4d5258; }
+  #about p { font-size: 14.5px; color: #4d5258; margin: 0 0 14px; max-width: 78ch; }
+  .contact {
+    margin: 22px 0 20px; padding: 18px 20px;
+    background: var(--info-bg); border-left: 4px solid var(--info); border-radius: 0 4px 4px 0;
+  }
+  .contact h3 { margin: 0 0 8px; font-size: 15px; font-weight: 600; color: #004080; }
+  .contact p { margin: 0 0 10px; color: #30495e; }
+  .contact p.email { margin: 0; }
+  .contact .email a {
+    display: inline-block; font-size: 16px; font-weight: 600;
+    font-family: "Red Hat Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--info); text-decoration: none;
+    border-bottom: 2px solid #bedcf4; padding-bottom: 1px;
+  }
+  .contact .email a:hover { color: var(--accent-dark); border-bottom-color: var(--accent); }
+  ol.setup-steps { counter-reset: s; list-style: none; margin: 0; padding: 0; }
+  ol.setup-steps > li { counter-increment: s; position: relative; padding: 0 0 26px 44px; }
+  ol.setup-steps > li::before {
+    content: counter(s); position: absolute; left: 0; top: 0;
+    width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff;
+    font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  }
+  ol.setup-steps > li:not(:last-child)::after {
+    content: ""; position: absolute; left: 14.5px; top: 34px; bottom: 4px; width: 1px; background: var(--line);
+  }
+  ol.setup-steps h3 { margin: 4px 0 8px; font-size: 15px; font-weight: 600; }
+  ol.setup-steps p { margin: 0 0 10px; font-size: 14px; color: #4d5258; }
+  ol.setup-steps p.note { font-size: 13px; color: var(--muted); border-left: 3px solid var(--line); padding-left: 10px; }
+  ul.access { margin: 0 0 12px; padding-left: 20px; }
+  ul.access li { font-size: 14px; color: #4d5258; padding: 0 0 6px; }
+  ul.access strong { color: var(--ink); }
+  .cmd { position: relative; margin: 0 0 12px; }
+  .cmd pre {
+    margin: 0; padding: 12px 70px 12px 14px; overflow-x: auto;
+    background: #1b1d21; color: #e8e8e8; border-radius: 5px;
+    font-family: "Red Hat Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px; line-height: 1.65;
+  }
+  .cmd .copy {
+    position: absolute; top: 8px; right: 8px; font: inherit; font-size: 11px; font-weight: 600;
+    padding: 4px 10px; cursor: pointer; color: #d2d2d7; background: #33363a;
+    border: 1px solid #5a5d61; border-radius: 3px;
+  }
+  .cmd .copy:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .cmd .copy.done { background: var(--ok); color: #fff; border-color: var(--ok); }
+  main { max-width: 1060px; margin: 0 auto; padding: 24px 20px 40px; }
+
+  footer {
+    max-width: 1060px;
+    margin: 0 auto;
+    padding: 16px 20px 40px;
+    border-top: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; gap: 10px 20px;
+    align-items: center; justify-content: space-between;
+    font-size: 12.5px; color: var(--muted);
+  }
+  .ver-badge {
+    display: inline-block; margin-left: 6px; padding: 2px 9px;
+    border: 1px solid var(--line); border-radius: 10px;
+    background: #fff; color: var(--ink);
+    font-family: "Red Hat Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11.5px; font-weight: 600;
+  }
+  .ver-badge.unknown { color: var(--muted); font-weight: 400; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    margin-bottom: 20px;
+  }
+  .panel h2 {
+    margin: 0 0 14px;
+    font-size: 15px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--muted);
+  }
+  .controls { display: grid; grid-template-columns: 1fr auto 1fr 1fr; gap: 14px; align-items: start; }
+  .controls.op { grid-template-columns: minmax(0,2fr) 3fr; }
+  @media (max-width: 760px) { .controls, .controls.op { grid-template-columns: 1fr; } .arrow { display: none; } }
+  .bar { height: 5px; background: var(--line); border-radius: 3px; overflow: hidden; max-width: 340px; margin: 14px auto 0; }
+  .bar > span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s linear; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .5px; }
+  select {
+    width: 100%;
+    padding: 9px 10px;
+    font: inherit;
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-bottom: 2px solid #8a8d90;
+    border-radius: 4px;
+  }
+  select:focus { outline: 2px solid var(--info); outline-offset: 1px; border-bottom-color: var(--info); }
+  select:disabled { background: #f0f0f0; color: var(--muted); }
+  .arrow { font-size: 22px; color: var(--muted); padding-top: 26px; text-align: center; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 16px; }
+
+  .banner { padding: 12px 14px; border-radius: 4px; font-size: 14px; border-left: 4px solid; margin-bottom: 16px; }
+  .banner.ok   { background: var(--ok-bg);   border-color: var(--ok);   color: #1f3d0c; }
+  .banner.warn { background: var(--warn-bg); border-color: #f0ab00;     color: var(--warn); }
+  .banner.err  { background: var(--err-bg);  border-color: var(--accent); color: var(--err); }
+  .banner.info { background: var(--info-bg); border-color: var(--info); color: #004080; }
+  .banner strong { display: block; margin-bottom: 2px; }
+
+  .summary { display: flex; flex-wrap: wrap; gap: 28px; padding: 14px 0 18px; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+  .stat .k { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+  .stat .v { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat .v small { font-size: 13px; font-weight: 400; color: var(--muted); }
+
+  ol.steps { list-style: none; margin: 0; padding: 0; }
+  ol.steps li { position: relative; padding: 0 0 20px 38px; }
+  ol.steps li:last-child { padding-bottom: 0; }
+  ol.steps li::before {
+    content: counter(step);
+    counter-increment: step;
+    position: absolute; left: 0; top: 0;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  ol.steps { counter-reset: step; }
+  ol.steps li:not(:last-child)::after {
+    content: ""; position: absolute; left: 12.5px; top: 28px; bottom: 2px; width: 1px; background: var(--line);
+  }
+  .hop { font-size: 16px; font-weight: 600; }
+  .hop .from { color: var(--muted); font-weight: 500; }
+  .hop .to { color: var(--ink); }
+  .meta { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  code, .ver { font-family: "Red Hat Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+  .tag {
+    display: inline-block; padding: 1px 7px; border-radius: 10px;
+    font-size: 11px; font-weight: 600; letter-spacing: .3px;
+    background: #e7f1fa; color: #004080; border: 1px solid #bedcf4;
+    margin-right: 4px;
+  }
+  .tag.gray { background: #f0f0f0; color: var(--muted); border-color: var(--line); }
+  .tag.switch { background: #fdf7e7; color: var(--warn); border-color: #f4d799; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); background: #fafafa; }
+  tr.best td { background: var(--ok-bg); }
+  td.num { font-variant-numeric: tabular-nums; }
+
+  details { margin-top: 18px; }
+  details > summary {
+    cursor: pointer; font-size: 13px; font-weight: 600; color: var(--info);
+    padding: 6px 0; list-style: none;
+  }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::before { content: "\25B8 "; }
+  details[open] > summary::before { content: "\25BE "; }
+
+  #loader { text-align: center; padding: 40px 20px; color: var(--muted); }
+  .spinner {
+    width: 26px; height: 26px; margin: 0 auto 12px;
+    border: 3px solid var(--line); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  button.file {
+    font: inherit; padding: 8px 16px; margin-top: 10px; cursor: pointer;
+    background: var(--accent); color: #fff; border: 0; border-radius: 4px; font-weight: 600;
+  }
+  button.file:hover { background: var(--accent-dark); }
+  .footnote { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1><a href="index.html" title="Back to the operator list">Operator Upgrade Path Finder</a></h1>
+    <p id="subtitle">Loading catalog&hellip;</p>
+  </div>
+  <nav>
+    <a href="#setup" id="setupLink">Setup &amp; data refresh</a>
+    <a href="#disclaimer" id="disclaimerLink">Disclaimer</a>
+    <a href="#about" id="aboutLink">About</a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="panel hidden" id="disclaimer">
+    <h2>Disclaimer</h2>
+    <div class="banner warn">
+      <strong>Not delivered or released by Red Hat</strong>
+      This project or the binary files available in the <code>Releases</code> area are
+      <strong style="display:inline">NOT</strong> delivered and/or released by Red Hat.
+    </div>
+    <p>
+      This is an independent project to help customers and Red Hat Support team to check what should be
+      the hops whenever doing an Operator Upgrade.
+    </p>
+    <button class="file" type="button" id="disclaimerClose">Close</button>
+  </section>
+
+  <section class="panel hidden" id="about">
+    <h2>About</h2>
+    <p class="lead">
+      Operator Upgrade Path Finder works out how an OpenShift operator gets from the version you are
+      running to the version you want, using the operator's own OLM catalog as the source of truth.
+    </p>
+    <p>
+      It applies the same rules OLM itself uses when it resolves a Subscription &mdash;
+      <code>replaces</code>, <code>skips</code> and <code>skipRange</code> &mdash; so the path you see is
+      the path the cluster would actually take: every hop, the channel it runs on, and any point where the
+      Subscription channel has to change. When no upgrade path exists, it says so and explains why.
+    </p>
+
+    <div class="contact">
+      <h3>Questions, doubts or ideas?</h3>
+      <p>
+        They are very welcome. If anything here is unclear, looks wrong, or you have a suggestion for
+        something it should do, please get in touch:
+      </p>
+      <p class="email"><a href="mailto:waldirio@gmail.com">waldirio@gmail.com</a></p>
+    </div>
+
+    <button class="file" type="button" id="aboutClose">Close</button>
+  </section>
+
+  <section class="panel hidden" id="setup">
+    <h2>Setup &mdash; building the catalog source</h2>
+    <p class="lead">
+      This page reads an OLM file-based catalog that you extract from the Red Hat operator index image.
+      Clone the repository, pull the catalog, build the index, then serve the page &mdash; opening the
+      firewall port only if you need to reach it from another machine.
+    </p>
+
+    <ol class="setup-steps">
+      <li>
+        <h3>Get the application</h3>
+        <p>Clone the repository and move into it &mdash; every command below runs from there.</p>
+        <div class="cmd">
+          <button class="copy" type="button">Copy</button>
+<pre>git clone https://github.com/QikfixAI/ocp_operator_upgrade_path_finder.git
+cd ocp_operator_upgrade_path_finder</pre>
+        </div>
+      </li>
+
+      <li>
+        <h3>Extract the catalog from the operator index</h3>
+        <p>The index image carries every operator's catalog under <code>/configs</code>, one sub-directory
+           per operator. Match the tag to your cluster's OpenShift version
+           (<code>v4.14</code>, <code>v4.16</code>, <code>v4.19</code>&hellip;).</p>
+        <div class="cmd">
+          <button class="copy" type="button">Copy</button>
+<pre>podman login registry.redhat.io -u REDHAT_USER_HERE
+podman pull registry.redhat.io/redhat/redhat-operator-index:v4.16
+podman create --name rhoai-catalog registry.redhat.io/redhat/redhat-operator-index:v4.16
+podman cp rhoai-catalog:/configs /tmp/catalog
+podman rm rhoai-catalog</pre>
+        </div>
+        <p>Then put it next to this page, as <code>catalog/</code>:</p>
+        <div class="cmd">
+          <button class="copy" type="button">Copy</button>
+<pre>mv /tmp/catalog ./catalog</pre>
+        </div>
+        <p class="note">Expect roughly 1.5&ndash;2&nbsp;GB. Individual <code>catalog.json</code> files run to
+           200&nbsp;MB+ because they embed every bundle's manifests as base64.</p>
+      </li>
+
+      <li>
+        <h3>Build the index</h3>
+        <p><code>build-index.sh</code> walks each sub-directory of <code>catalog/</code> and distils it down
+           to just the upgrade graph &mdash; the <code>olm.package</code> and <code>olm.channel</code>
+           records. The <code>olm.bundle</code> records are the bulk of the bytes and hold nothing the
+           upgrade path needs, so they are streamed past and discarded.</p>
+        <div class="cmd">
+          <button class="copy" type="button">Copy</button>
+<pre>./build-index.sh catalog data</pre>
+        </div>
+        <p>This writes <code>data/operators.json</code> plus one small file per operator, turning
+           ~1.6&nbsp;GB into ~1&nbsp;MB in a few seconds. It handles every layout in the index image:
+           <code>catalog.json</code>, <code>index.json</code>, <code>channels/*.json</code>,
+           <code>channel.json</code> and the YAML variants.</p>
+        <p class="note">Needs <code>python3</code> (used by default) or <code>jq</code>
+           (<code>--engine jq</code>; JSON layouts only). Re-run it whenever you pull a newer catalog.</p>
+        <p>It also regenerates <code>version.js</code> from <code>version.conf</code>, which is what lets
+           the footer show a version when this page is opened straight from disk. After bumping
+           <code>version.conf</code> you can refresh just that, without reindexing:</p>
+        <div class="cmd">
+          <button class="copy" type="button">Copy</button>
+<pre>./build-index.sh --version-only</pre>
+        </div>
+      </li>
+
+      <li>
+        <h3>Open the port on the firewall <span style="font-weight:400;color:var(--muted)">(RHEL)</span></h3>
+        <p>Only needed if you will reach the page from another machine. Skip it if you are browsing
+           from the same host that runs the server.</p>
+        <div class="cmd">
+          <button class="copy" type="button">Copy</button>
+<pre>sudo firewall-cmd --permanent --add-port=8000/tcp
+sudo firewall-cmd --reload</pre>
+        </div>
+        <p><code>--permanent</code> writes the rule to the zone config so it survives reboots, but does not
+           touch the running firewall &mdash; that is what <code>--reload</code> is for. Confirm with
+           <code>sudo firewall-cmd --list-ports</code>. Drop <code>sudo</code> if you are already root.</p>
+        <p class="note">Opening the port exposes the whole directory, catalog included, to anyone who can
+           reach the host &mdash; the server has no authentication. On a shared or internet-facing machine,
+           prefer <code>--bind 127.0.0.1</code> plus an SSH tunnel
+           (<code>ssh -L 8000:localhost:8000 user@host</code>).</p>
+      </li>
+
+      <li>
+        <h3>Serve the page</h3>
+        <p>Browsers block <code>fetch()</code> on <code>file://</code> URLs, so the page has to be served
+           over HTTP. From this directory:</p>
+        <div class="cmd">
+          <button class="copy" type="button">Copy</button>
+<pre>python3 -m http.server 8000</pre>
+        </div>
+        <p>Then open it and pick an operator &mdash; either way works:</p>
+        <ul class="access">
+          <li><strong>On this machine</strong> &mdash;
+              <a href="http://localhost:8000/">http://localhost:8000/</a></li>
+          <li><strong>From another machine</strong>, if you installed this on a remote host &mdash;
+              <code>http://&lt;server-ip&gt;:8000/</code>. The server already listens on every interface,
+              so you only need the port open (step 4). Find the address with <code>hostname -I</code>
+              or <code>ip -4 addr show</code>.</li>
+        </ul>
+        <p class="note">Without <code>data/</code> the page still works: it discovers operators from the
+           web server's directory listing of <code>catalog/</code> and stream-parses the catalog you select.
+           That re-reads the full file each time &mdash; several seconds for the largest ones &mdash; which
+           is why step 3 is worth running.</p>
+      </li>
+    </ol>
+
+    <button class="file" type="button" id="setupClose">Close</button>
+  </section>
+
+  <div id="loader" class="panel">
+    <div class="spinner"></div>
+    <div id="loaderMsg">Discovering operators&hellip;</div>
+  </div>
+
+  <div id="loadError" class="panel hidden">
+    <div class="banner err">
+      <strong>Could not load the catalog</strong>
+      <span id="loadErrorMsg"></span>
+    </div>
+    <p style="font-size:14px">
+      The usual causes are opening this file directly from disk (browsers block <code>fetch()</code> on
+      <code>file://</code> URLs), a missing <code>catalog/</code> directory, or an index that has not been
+      built yet. The Setup steps cover all three.
+    </p>
+    <button class="file" type="button" id="setupFromError">Show setup steps</button>
+  </div>
+
+  <div id="app" class="hidden">
+
+    <section class="panel">
+      <h2>Operator</h2>
+      <div class="controls op">
+        <div>
+          <label for="op">Operator package</label>
+          <select id="op"><option value="">&mdash; select an operator &mdash;</option></select>
+          <div class="hint" id="opHint"></div>
+        </div>
+        <div>
+          <label>Catalog source</label>
+          <div class="hint" id="srcInfo" style="margin-top:9px"></div>
+        </div>
+      </div>
+    </section>
+
+    <div id="opLoader" class="panel hidden">
+      <div class="spinner"></div>
+      <div id="opLoaderMsg"></div>
+      <div id="opLoaderBar" class="bar hidden"><span></span></div>
+    </div>
+
+    <div id="opError" class="panel hidden">
+      <div class="banner err"><strong>Could not load this operator</strong><span id="opErrorMsg"></span></div>
+    </div>
+
+    <section class="panel hidden" id="versionPanel">
+      <h2>Select versions</h2>
+      <div class="controls">
+        <div>
+          <label for="src">Source version <span style="font-weight:400;text-transform:none">(installed)</span></label>
+          <select id="src"><option value="">&mdash; select &mdash;</option></select>
+          <div class="hint" id="srcHint"></div>
+        </div>
+        <div class="arrow">&rarr;</div>
+        <div>
+          <label for="tgt">Target version</label>
+          <select id="tgt"><option value="">&mdash; select &mdash;</option></select>
+          <div class="hint" id="tgtHint"></div>
+        </div>
+        <div>
+          <label for="chan">Channel</label>
+          <select id="chan"><option value="">Any channel (allow switching)</option></select>
+          <div class="hint" id="chanHint"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel hidden" id="result">
+      <h2>Recommended upgrade path</h2>
+      <div id="resultBody">
+        <p style="color:var(--muted)">Pick a source and a target version above.</p>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer>
+  <span>Operator Upgrade Path Finder <span id="appVersion" class="ver-badge">&hellip;</span></span>
+  <span id="footNote"></span>
+</footer>
+
+<!-- Generated from version.conf by build-index.sh. A <script src> is the only
+     way to read a sibling file when the page is opened straight from disk,
+     since browsers block fetch() on file:// URLs. Optional: when the page is
+     served over HTTP, version.conf itself is read directly and wins. -->
+<script src="version.js"></script>
+
+<script>
+"use strict";
+
+const CATALOG_DIR = "catalog";      // one sub-directory per operator
+const DATA_DIR = "data";            // optional slim index from build-index.sh
+const VERSION_FILE = "version.conf";
+
+/* ------------------------------------------------------------------ *
+ * 1. Discovering operators and loading their catalogs
+ *
+ * Two sources, tried in order:
+ *
+ *  a) DATA_DIR/operators.json + DATA_DIR/<operator>.json -- the slim
+ *     index produced by build-index.mjs. Preferred: a few KB per
+ *     operator instead of up to 220 MB, so switching is instant.
+ *
+ *  b) Live from CATALOG_DIR. Operators are discovered by parsing the
+ *     web server's directory listing, and the operator's catalog.json
+ *     is stream-parsed so that memory stays bounded no matter how big
+ *     the file is (olm.bundle records are the bulk of the bytes and are
+ *     discarded as they go past).
+ *
+ * An OLM file-based catalog is a *stream* of concatenated JSON objects,
+ * not one JSON document, so JSON.parse() on the whole file fails. Both
+ * paths split on top-level brace depth and keep only the small
+ * olm.channel / olm.package records.
+ * ------------------------------------------------------------------ */
+
+const WANTED = /"schema"\s*:\s*"olm\.(channel|package)"/;
+
+// Incremental splitter: feed it text, it hands back complete top-level
+// JSON objects and keeps only the unfinished tail in memory.
+function makeSplitter(onObject) {
+  let buf = "", i = 0, depth = 0, inStr = false, esc = false, start = -1;
+  const scan = () => {
+    for (; i < buf.length; i++) {
+      const c = buf.charCodeAt(i);
+      if (inStr) {
+        if (esc) esc = false;
+        else if (c === 92) esc = true;      // backslash
+        else if (c === 34) inStr = false;   // quote
+        continue;
+      }
+      if (c === 34) { inStr = true; continue; }
+      if (c === 123 || c === 91) {          // { [
+        if (depth === 0) start = i;
+        depth++;
+      } else if (c === 125 || c === 93) {   // } ]
+        depth--;
+        if (depth === 0 && start >= 0) {
+          onObject(buf.slice(start, i + 1));
+          buf = buf.slice(i + 1);           // release consumed bytes
+          i = -1; start = -1;
+        }
+      }
+    }
+  };
+  return { push(text) { buf += text; scan(); }, end() { scan(); } };
+}
+
+function collector() {
+  const channels = [];
+  let pkg = null;
+  const split = makeSplitter(chunk => {
+    if (!WANTED.test(chunk)) return;        // skip olm.bundle blobs
+    let o;
+    try { o = JSON.parse(chunk); } catch { return; }
+    if (o.schema === "olm.channel") channels.push(o);
+    else if (o.schema === "olm.package" && !pkg) pkg = o;
+  });
+  return { split, result: () => ({ channels, pkg }) };
+}
+
+// Whole-text parse (used for the file picker and small files).
+function parseCatalogText(text) {
+  const c = collector();
+  c.split.push(text);
+  c.split.end();
+  return c.result();
+}
+
+// Streaming parse straight off the network.
+async function streamCatalog(url, onProgress) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${url}`);
+  if (!res.body) return parseCatalogText(await res.text());
+
+  const total = Number(res.headers.get("content-length")) || 0;
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  const c = collector();
+  let read = 0, lastTick = 0;
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    read += value.byteLength;
+    c.split.push(decoder.decode(value, { stream: true }));
+    const now = performance.now();
+    if (onProgress && now - lastTick > 120) { lastTick = now; onProgress(read, total); }
+  }
+  c.split.push(decoder.decode());
+  c.split.end();
+  if (onProgress) onProgress(read, total || read);
+  return c.result();
+}
+
+/* ---- directory listing (server autoindex) ---- */
+
+async function listDirectory(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} listing ${url}`);
+  const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+  const names = [];
+  for (const a of doc.querySelectorAll("a[href]")) {
+    const href = a.getAttribute("href");
+    if (!href || /^[?#]/.test(href) || /^[a-z]+:/i.test(href) || href.startsWith("/")) continue;
+    if (href === "../" || href === "..") continue;
+    names.push(decodeURIComponent(href));
+  }
+  return names;
+}
+
+/* ---- operator discovery ---- */
+
+// -> {source, operators:[{name, package, channels, versions, file?}]}
+async function discoverOperators() {
+  try {
+    const res = await fetch(`${DATA_DIR}/operators.json`, { cache: "no-cache" });
+    if (res.ok) {
+      const idx = await res.json();
+      if (idx.operators && idx.operators.length) {
+        return { source: "index", generated: idx.generated, operators: idx.operators };
+      }
+    }
+  } catch { /* fall through to live discovery */ }
+
+  const names = (await listDirectory(`${CATALOG_DIR}/`))
+    .filter(n => n.endsWith("/"))
+    .map(n => n.replace(/\/$/, ""))
+    .filter(n => n && n !== "." && n !== "..");
+  if (!names.length) throw new Error(`No operator sub-directories found under ${CATALOG_DIR}/`);
+  return { source: "live", operators: names.sort().map(n => ({ name: n })) };
+}
+
+/* ---- loading one operator ---- */
+
+// Normalised shape consumed by buildGraph: {name, defaultChannel, channels}
+function normalise(fallbackName, raw) {
+  if (raw.package !== undefined) {          // slim index file
+    return { name: raw.package || fallbackName, defaultChannel: raw.defaultChannel || "", channels: raw.channels || [] };
+  }
+  return {                                  // raw {channels, pkg}
+    name: (raw.pkg && raw.pkg.name) || fallbackName,
+    defaultChannel: (raw.pkg && raw.pkg.defaultChannel) || "",
+    channels: raw.channels || []
+  };
+}
+
+async function loadOperator(op, onProgress) {
+  // a) slim index
+  if (op.file) {
+    const res = await fetch(`${DATA_DIR}/${op.file}`, { cache: "force-cache" });
+    if (res.ok) return { data: normalise(op.name, await res.json()), via: `${DATA_DIR}/${op.file}` };
+  }
+
+  // b) live: the two single-file layouts, stream-parsed
+  const dir = `${CATALOG_DIR}/${op.name}`;
+  for (const f of ["catalog.json", "index.json"]) {
+    try {
+      const raw = await streamCatalog(`${dir}/${f}`, onProgress);
+      if (raw.channels.length) return { data: normalise(op.name, raw), via: `${dir}/${f}` };
+    } catch { /* try the next layout */ }
+  }
+
+  // c) live: split layouts, which need a directory listing
+  try {
+    const files = await listDirectory(`${dir}/`);
+    const channels = [];
+    let pkg = null;
+
+    if (files.includes("package.json")) {
+      const r = parseCatalogText(await (await fetch(`${dir}/package.json`)).text());
+      pkg = r.pkg;
+    }
+    if (files.some(f => f === "channels/" || f === "channels")) {
+      for (const cf of (await listDirectory(`${dir}/channels/`)).filter(f => f.endsWith(".json"))) {
+        const r = parseCatalogText(await (await fetch(`${dir}/channels/${cf}`)).text());
+        channels.push(...r.channels);
+      }
+    }
+    if (files.includes("channel.json")) {
+      const r = parseCatalogText(await (await fetch(`${dir}/channel.json`)).text());
+      channels.push(...r.channels);
+      pkg = pkg || r.pkg;
+    }
+    if (channels.length) return { data: normalise(op.name, { channels, pkg }), via: `${dir}/ (split layout)` };
+
+    if (files.some(f => f.endsWith(".yaml"))) {
+      throw new Error(`${op.name} uses a YAML catalog layout. Run ` +
+        `"node build-index.mjs ${CATALOG_DIR} ${DATA_DIR}" to index it.`);
+    }
+  } catch (err) {
+    if (/YAML catalog layout/.test(err.message)) throw err;
+  }
+
+  throw new Error(`No readable catalog found under ${dir}/. ` +
+    `Run "node build-index.mjs ${CATALOG_DIR} ${DATA_DIR}" to index every layout.`);
+}
+
+/* ------------------------------------------------------------------ *
+ * 2. Semver (OLM uses blang/semver: plain comparison, no npm-style
+ *    pre-release exclusion from ranges)
+ * ------------------------------------------------------------------ */
+
+const SEMVER_RE = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/;
+
+function parseVer(v) {
+  const m = SEMVER_RE.exec(String(v).trim());
+  if (!m) return null;
+  return {
+    major: +m[1], minor: +m[2], patch: +m[3],
+    pre: m[4] ? m[4].split(".") : [],
+    raw: v
+  };
+}
+
+function cmpIdent(a, b) {
+  const an = /^\d+$/.test(a), bn = /^\d+$/.test(b);
+  if (an && bn) return (+a) - (+b);
+  if (an) return -1;              // numeric identifiers rank lower
+  if (bn) return 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function cmpVer(a, b) {
+  if (!a || !b) return 0;
+  if (a.major !== b.major) return a.major - b.major;
+  if (a.minor !== b.minor) return a.minor - b.minor;
+  if (a.patch !== b.patch) return a.patch - b.patch;
+  if (!a.pre.length && !b.pre.length) return 0;
+  if (!a.pre.length) return 1;    // release > pre-release
+  if (!b.pre.length) return -1;
+  for (let i = 0; i < Math.max(a.pre.length, b.pre.length); i++) {
+    if (i >= a.pre.length) return -1;
+    if (i >= b.pre.length) return 1;
+    const c = cmpIdent(a.pre[i], b.pre[i]);
+    if (c) return c;
+  }
+  return 0;
+}
+
+// Ranges in these catalogs look like ">=2.16.0 <2.25.12"; support
+// space-separated AND comparators and "||" for OR.
+function satisfies(ver, rangeStr) {
+  if (!ver || !rangeStr) return false;
+  return rangeStr.split("||").some(group => {
+    const parts = group.trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return false;
+    return parts.every(p => {
+      const m = /^(>=|<=|!=|>|<|==|=)?\s*(.+)$/.exec(p);
+      if (!m) return false;
+      const op = m[1] || "=";
+      const bound = parseVer(m[2]);
+      if (!bound) return false;
+      const c = cmpVer(ver, bound);
+      switch (op) {
+        case ">":  return c > 0;
+        case ">=": return c >= 0;
+        case "<":  return c < 0;
+        case "<=": return c <= 0;
+        case "!=": return c !== 0;
+        default:   return c === 0;
+      }
+    });
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * 3. Upgrade graph
+ *
+ * A channel entry B accepts an upgrade from A when B declares any of:
+ *   replaces: A  |  skips: [... A ...]  |  skipRange matching A's version
+ *
+ * Crucially, A does NOT have to be an entry of that channel. skipRange is
+ * matched against the version of the *installed CSV*, and replaces/skips
+ * may name bundles served by other channels. So a cluster on 2.19.3
+ * (channel stable-2.19) can subscribe to `stable` and be upgraded to
+ * 2.22.0, whose skipRange is >=2.19.0 <2.22.0 -- even though 2.19.3 is
+ * not listed in `stable`.
+ *
+ * Therefore: the edge *destination* must be an entry of the channel (you
+ * can only install what the channel serves), but the *source* may be any
+ * bundle in the package.
+ * ------------------------------------------------------------------ */
+
+const State = {
+  pkgName: "rhods-operator",
+  defaultChannel: "",
+  channels: [],          // [{name, entries:[{name, version, ...}], edges: Map(from -> [{to, reasons}])}]
+  versions: [],          // sorted desc: [{name, version, parsed, channels:[...]}]
+  byName: new Map()
+};
+
+function buildGraph(parsed) {
+  State.pkgName = parsed.name || "operator";
+  State.defaultChannel = parsed.defaultChannel || "";
+
+  // bundle name -> {name, version, parsed, channels:Set}
+  const versionInfo = new Map();
+  const ensure = name => {
+    let v = versionInfo.get(name);
+    if (!v) {
+      const vs = stripPrefix(name);
+      v = { name, version: vs, parsed: parseVer(vs), channels: new Set() };
+      versionInfo.set(name, v);
+    }
+    return v;
+  };
+
+  // Pass 1: every bundle the catalog mentions, as a channel entry or as
+  // the referent of a replaces/skips. Edges may start at any of them.
+  for (const ch of parsed.channels) {
+    for (const e of (ch.entries || [])) {
+      ensure(e.name).channels.add(ch.name);
+      if (e.replaces) ensure(e.replaces);
+      for (const s of (e.skips || [])) ensure(s);
+    }
+  }
+  const allVersions = [...versionInfo.values()];
+
+  // Pass 2: per-channel edges. Destination must be an entry of the
+  // channel; source may be any known bundle.
+  const channels = parsed.channels.map(ch => {
+    const entries = ch.entries || [];
+    const members = new Set(entries.map(e => e.name));
+
+    // from -> [{to, reasons:[...]}]
+    const edges = new Map();
+    const addEdge = (from, to, reason) => {
+      if (from === to || !versionInfo.has(from) || !members.has(to)) return;
+      if (!edges.has(from)) edges.set(from, new Map());
+      const m = edges.get(from);
+      if (!m.has(to)) m.set(to, []);
+      if (!m.get(to).includes(reason)) m.get(to).push(reason);
+    };
+
+    for (const e of entries) {
+      if (e.replaces) addEdge(e.replaces, e.name, "replaces");
+      for (const s of (e.skips || [])) addEdge(s, e.name, "skips");
+      if (e.skipRange) {
+        for (const other of allVersions) {
+          if (other.name === e.name) continue;
+          if (satisfies(other.parsed, e.skipRange)) addEdge(other.name, e.name, "skipRange " + e.skipRange);
+        }
+      }
+    }
+
+    // normalise to plain arrays
+    const out = new Map();
+    for (const [from, m] of edges) {
+      out.set(from, [...m].map(([to, reasons]) => ({ to, reasons })));
+    }
+    return { name: ch.name, entries, members, edges: out, head: channelHead(entries, versionInfo) };
+  });
+
+  channels.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  State.channels = channels;
+  State.byName = versionInfo;
+  State.versions = [...versionInfo.values()]
+    .map(v => ({ ...v, channels: [...v.channels].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })) }))
+    .sort((a, b) => cmpVer(b.parsed, a.parsed) || b.version.localeCompare(a.version));
+  for (const v of State.versions) State.byName.set(v.name, v);
+}
+
+function channelHead(entries, info) {
+  let head = null;
+  for (const e of entries) {
+    const v = info.get(e.name);
+    if (!head || cmpVer(v.parsed, info.get(head).parsed) > 0) head = e.name;
+  }
+  return head;
+}
+
+// "rhods-operator.2.19.3"               -> "2.19.3"
+// "advanced-cluster-management.v2.10.0" -> "2.10.0"
+// "odr-cluster-operator.v4.15.0-rhodf"  -> "4.15.0-rhodf"
+function stripPrefix(bundleName) {
+  let s = String(bundleName);
+  const pkg = State.pkgName;
+  if (pkg && s.startsWith(pkg + ".")) s = s.slice(pkg.length + 1);
+  else {
+    const i = s.indexOf(".");
+    // only treat the head as a package prefix if it isn't already a number
+    if (i > 0 && !/^\d+$/.test(s.slice(0, i))) s = s.slice(i + 1);
+  }
+  if (/^v\d/.test(s)) s = s.slice(1);
+  return s;
+}
+
+/* ---- path search -------------------------------------------------- *
+ * Dijkstra over (version, channel) states. Cost of an upgrade hop is
+ * 1000; cost of switching channel at the same version is 1. So we
+ * minimise hops first, then channel switches.
+ * ------------------------------------------------------------------ */
+
+const HOP_COST = 1000, SWITCH_COST = 1;
+
+function findPath(srcName, tgtName, channelFilter) {
+  const chans = State.channels.filter(c => !channelFilter || c.name === channelFilter);
+  if (!chans.length) return { ok: false, reason: "no-such-channel" };
+  if (!chans.some(c => c.members.has(tgtName))) return { ok: false, reason: "target-not-in-channel" };
+
+  const key = (v, c) => v + "\u0000" + c;
+  const dist = new Map(), prev = new Map();
+  const pq = [];                                     // tiny graph: linear-scan PQ is fine
+
+  // A Subscription's channel is just a field, so any channel is a valid
+  // starting point regardless of whether it lists the installed version.
+  for (const c of chans) { dist.set(key(srcName, c.name), 0); pq.push({ v: srcName, c: c.name, d: 0 }); }
+
+  let goal = null;
+  while (pq.length) {
+    let bi = 0;
+    for (let i = 1; i < pq.length; i++) if (pq[i].d < pq[bi].d) bi = i;
+    const cur = pq.splice(bi, 1)[0];
+    const ck = key(cur.v, cur.c);
+    if (cur.d > (dist.get(ck) ?? Infinity)) continue;
+    if (cur.v === tgtName) { goal = cur; break; }
+
+    const chan = chans.find(c => c.name === cur.c);
+    const relax = (nv, nc, nd, edge) => {
+      const nk = key(nv, nc);
+      if (nd < (dist.get(nk) ?? Infinity)) {
+        dist.set(nk, nd);
+        prev.set(nk, { from: ck, edge });
+        pq.push({ v: nv, c: nc, d: nd });
+      }
+    };
+
+    for (const e of (chan.edges.get(cur.v) || [])) {
+      relax(e.to, cur.c, cur.d + HOP_COST, { kind: "upgrade", from: cur.v, to: e.to, channel: cur.c, reasons: e.reasons });
+    }
+    for (const other of chans) {
+      if (other.name === cur.c) continue;
+      relax(cur.v, other.name, cur.d + SWITCH_COST, { kind: "switch", at: cur.v, from: cur.c, to: other.name });
+    }
+  }
+
+  if (!goal) return { ok: false, reason: "no-path" };
+
+  const steps = [];
+  let k = key(goal.v, goal.c);
+  while (prev.has(k)) { const p = prev.get(k); steps.unshift(p.edge); k = p.from; }
+  const startChannel = k.split("\u0000")[1];
+  return { ok: true, steps, startChannel, hops: steps.filter(s => s.kind === "upgrade").length };
+}
+
+// Shortest path staying inside one single channel (no switches).
+function singleChannelPath(srcName, tgtName, chan) {
+  if (!chan.members.has(tgtName)) return null;
+  if (srcName === tgtName) return [];
+  const prev = new Map(), seen = new Set([srcName]);
+  let frontier = [srcName];
+  while (frontier.length) {
+    const next = [];
+    for (const v of frontier) {
+      for (const e of (chan.edges.get(v) || [])) {
+        if (seen.has(e.to)) continue;
+        seen.add(e.to);
+        prev.set(e.to, { from: v, reasons: e.reasons });
+        if (e.to === tgtName) {
+          const steps = [];
+          let cur = tgtName;
+          while (cur !== srcName) {
+            const p = prev.get(cur);
+            steps.unshift({ kind: "upgrade", from: p.from, to: cur, channel: chan.name, reasons: p.reasons });
+            cur = p.from;
+          }
+          return steps;
+        }
+        next.push(e.to);
+      }
+    }
+    frontier = next;
+  }
+  return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * 4. UI
+ * ------------------------------------------------------------------ */
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function populateVersions() {
+  $("subtitle").innerHTML =
+    `<code>${esc(State.pkgName)}</code> &middot; ${State.versions.length} versions &middot; ` +
+    `${State.channels.length} channels &middot; default channel <code>${esc(State.defaultChannel || "n/a")}</code>`;
+
+  const opts = State.versions
+    .map(v => `<option value="${esc(v.name)}">${esc(v.version)}</option>`).join("");
+  $("src").innerHTML = '<option value="">&mdash; select &mdash;</option>' + opts;
+  $("tgt").innerHTML = '<option value="">&mdash; select &mdash;</option>' + opts;
+
+  $("chan").innerHTML = '<option value="">Any channel (allow switching)</option>' +
+    State.channels.map(c =>
+      `<option value="${esc(c.name)}">${esc(c.name)} (${c.entries.length} versions, head ${esc(stripPrefix(c.head))})</option>`
+    ).join("");
+
+  // Clear any selection carried over from the previous operator.
+  for (const id of ["src", "tgt", "chan"]) $(id).value = "";
+}
+
+function versionHint(name) {
+  if (!name) return "";
+  const v = State.byName.get(name);
+  if (!v.channels.length) return `bundle <code>${esc(v.name)}</code> &middot; not served by any channel`;
+  return `bundle <code>${esc(v.name)}</code> &middot; served by: ` +
+    v.channels.map(c => `<span class="tag">${esc(c)}</span>`).join("");
+}
+
+function render() {
+  // Ignore selections that do not belong to the operator now loaded.
+  const valid = n => n && State.byName.has(n);
+  const src = valid($("src").value) ? $("src").value : "";
+  const tgt = valid($("tgt").value) ? $("tgt").value : "";
+  const chan = State.channels.some(c => c.name === $("chan").value) ? $("chan").value : "";
+
+  $("srcHint").innerHTML = versionHint(src);
+  $("tgtHint").innerHTML = versionHint(tgt);
+  $("chanHint").innerHTML = chan
+    ? `path must stay inside <code>${esc(chan)}</code>`
+    : "channel switches are allowed and shown as steps";
+
+  const box = $("resultBody");
+  if (!src || !tgt) {
+    box.innerHTML = `<p style="color:var(--muted)">Pick a source and a target version above.</p>`;
+    return;
+  }
+
+  const sv = State.byName.get(src), tv = State.byName.get(tgt);
+
+  if (src === tgt) {
+    box.innerHTML = banner("info", "Already on the target version",
+      `<code>${esc(sv.version)}</code> is both the source and the target &mdash; nothing to do.`);
+    return;
+  }
+
+  const direction = cmpVer(tv.parsed, sv.parsed);
+  let html = "";
+  if (direction < 0) {
+    html += banner("err", "Downgrade requested",
+      `<code>${esc(tv.version)}</code> is older than <code>${esc(sv.version)}</code>. ` +
+      `OLM does not support downgrades &mdash; the operator must be uninstalled and reinstalled. ` +
+      `The search below still runs in case the catalog declares an edge.`);
+  }
+
+  const res = findPath(src, tgt, chan);
+
+  if (!res.ok) {
+    html += noPathExplanation(res.reason, sv, tv, chan);
+    html += reachableFrom(sv, chan);
+    box.innerHTML = html;
+    return;
+  }
+
+  const upgrades = res.steps.filter(s => s.kind === "upgrade");
+  const switches = res.steps.filter(s => s.kind === "switch");
+  const channelsUsed = [...new Set([res.startChannel, ...res.steps.map(s => s.kind === "switch" ? s.to : s.channel)])];
+
+  const onStart = sv.channels.includes(res.startChannel);
+  if (upgrades.length === 1 && !switches.length) {
+    html += banner("ok", "Direct upgrade supported",
+      `<code>${esc(sv.version)}</code> can go straight to <code>${esc(tv.version)}</code> on channel ` +
+      `<code>${esc(res.startChannel)}</code>.`);
+  } else if (!switches.length) {
+    html += banner("ok", `${upgrades.length} upgrade steps, one channel`,
+      `${onStart ? "Stay on" : "Use"} channel <code>${esc(res.startChannel)}</code> for the whole path.`);
+  } else {
+    html += banner("warn", `${upgrades.length} upgrade steps across ${channelsUsed.length} channels`,
+      `The subscription channel must be changed ${switches.length} time${switches.length > 1 ? "s" : ""} ` +
+      `(${channelsUsed.map(c => `<code>${esc(c)}</code>`).join(" &rarr; ")}).`);
+  }
+
+  if (!sv.channels.includes(res.startChannel)) {
+    html += banner("info", `Subscribe to <code>${esc(res.startChannel)}</code> to begin`,
+      `<code>${esc(sv.version)}</code> is not listed in <code>${esc(res.startChannel)}</code> ` +
+      `(it is served by ${sv.channels.map(c => `<code>${esc(c)}</code>`).join(", ") || "no channel"}), ` +
+      `but the first hop below accepts it anyway &mdash; OLM matches <code>skipRange</code> against the ` +
+      `version of the installed CSV, not against the channel's entry list.`);
+  }
+
+  html += `<div class="summary">
+    ${stat("From", esc(sv.version))}
+    ${stat("To", esc(tv.version))}
+    ${stat("Upgrade steps", String(upgrades.length))}
+    ${stat("Channel changes", String(switches.length))}
+    ${stat("Start on channel", `<small>${esc(res.startChannel)}</small>`)}
+  </div>`;
+
+  html += `<ol class="steps">` + res.steps.map(s => {
+    if (s.kind === "switch") {
+      return `<li><div class="hop"><span class="from">switch channel</span>
+        <span class="tag gray">${esc(s.from)}</span> &rarr; <span class="tag switch">${esc(s.to)}</span></div>
+        <div class="meta">Edit the Subscription <code>spec.channel</code> while on
+        <code class="ver">${esc(stripPrefix(s.at))}</code>. No operator version change.</div></li>`;
+    }
+    const f = State.byName.get(s.from), t = State.byName.get(s.to);
+    return `<li><div class="hop"><span class="from ver">${esc(f.version)}</span> &rarr;
+      <span class="to ver">${esc(t.version)}</span></div>
+      <div class="meta">channel <span class="tag">${esc(s.channel)}</span>
+      via ${s.reasons.map(r => `<code>${esc(r)}</code>`).join(", ")}</div></li>`;
+  }).join("") + `</ol>`;
+
+  html += perChannelTable(src, tgt, res);
+  html += `<details><summary>Versions directly reachable from ${esc(sv.version)}</summary>${reachableFrom(sv, chan)}</details>`;
+
+  box.innerHTML = html;
+}
+
+function stat(k, v) { return `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`; }
+function banner(kind, title, body) { return `<div class="banner ${kind}"><strong>${title}</strong>${body}</div>`; }
+
+function noPathExplanation(reason, sv, tv, chan) {
+  const where = chan ? `channel <code>${esc(chan)}</code>` : "any channel";
+  if (reason === "target-not-in-channel") {
+    return banner("err", "Target version is not in the selected channel",
+      `<code>${esc(tv.version)}</code> is not an entry of ${where}. It exists in: ` +
+      tv.channels.map(c => `<span class="tag">${esc(c)}</span>`).join(""));
+  }
+  const far = furthestReachable(sv.name, chan);
+  let extra = "";
+  if (!far) {
+    extra = ` <code>${esc(sv.version)}</code> is a dead end: nothing in the catalog upgrades from it` +
+            `${chan ? ` on <code>${esc(chan)}</code>` : ""}, so it is the end of its channel(s).`;
+  } else {
+    extra = ` The newest version reachable from <code>${esc(sv.version)}</code> is ` +
+            `<code>${esc(State.byName.get(far).version)}</code>.`;
+  }
+  return banner("err", "No upgrade path exists",
+    `The catalog declares no chain of <code>replaces</code> / <code>skips</code> / <code>skipRange</code> edges ` +
+    `from <code>${esc(sv.version)}</code> to <code>${esc(tv.version)}</code> within ${where}.` + extra +
+    (chan ? ` Try <em>Any channel</em>.` : ""));
+}
+
+// Highest version transitively reachable from a source (across the
+// allowed channels, switching freely).
+function furthestReachable(srcName, chan) {
+  const chans = State.channels.filter(c => !chan || c.name === chan);
+  const seen = new Set([srcName]);
+  let frontier = [srcName], best = null;
+  while (frontier.length) {
+    const next = [];
+    for (const v of frontier) {
+      for (const c of chans) {
+        for (const e of (c.edges.get(v) || [])) {
+          if (seen.has(e.to)) continue;
+          seen.add(e.to);
+          next.push(e.to);
+          const tv = State.byName.get(e.to);
+          if (!best || cmpVer(tv.parsed, State.byName.get(best).parsed) > 0) best = e.to;
+        }
+      }
+    }
+    frontier = next;
+  }
+  return best;
+}
+
+function reachableFrom(sv, chan) {
+  const rows = [];
+  for (const c of State.channels) {
+    if (chan && c.name !== chan) continue;
+    for (const e of (c.edges.get(sv.name) || [])) {
+      rows.push({ to: State.byName.get(e.to).version, channel: c.name, reasons: e.reasons });
+    }
+  }
+  if (!rows.length) {
+    return `<p style="font-size:13.5px;color:var(--muted)">
+      No single-step upgrade is declared from <code>${esc(sv.version)}</code>${chan ? ` on <code>${esc(chan)}</code>` : ""}.</p>`;
+  }
+  rows.sort((a, b) => cmpVer(parseVer(b.to), parseVer(a.to)) || a.channel.localeCompare(b.channel));
+  return `<table><thead><tr><th>Next version</th><th>Channel</th><th>Edge</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td class="ver">${esc(r.to)}</td><td><span class="tag">${esc(r.channel)}</span></td>
+      <td>${r.reasons.map(x => `<code>${esc(x)}</code>`).join(", ")}</td></tr>`).join("") +
+    `</tbody></table>`;
+}
+
+function perChannelTable(src, tgt, best) {
+  const rows = State.channels.map(c => {
+    if (!c.members.has(tgt)) return { c: c.name, note: "target not served by this channel" };
+    const p = singleChannelPath(src, tgt, c);
+    if (!p) return { c: c.name, note: "no path within this channel" };
+    return { c: c.name, hops: p.length, path: p, foreign: !c.members.has(src) };
+  });
+  const viable = rows.filter(r => r.path);
+  const min = viable.length ? Math.min(...viable.map(r => r.hops)) : null;
+
+  return `<details><summary>Compare all ${State.channels.length} channels (single-channel paths)</summary>
+    <table><thead><tr><th>Channel</th><th class="num">Steps</th><th>Path</th></tr></thead><tbody>` +
+    rows.map(r => {
+      const isBest = r.path && r.hops === min;
+      if (!r.path) {
+        return `<tr><td><span class="tag gray">${esc(r.c)}</span></td><td class="num">&mdash;</td>
+          <td style="color:var(--muted)">${esc(r.note)}</td></tr>`;
+      }
+      const chain = [State.byName.get(src).version, ...r.path.map(s => State.byName.get(s.to).version)];
+      return `<tr class="${isBest ? "best" : ""}"><td><span class="tag">${esc(r.c)}</span>${isBest ? " &#9733;" : ""}</td>
+        <td class="num">${r.hops}</td>
+        <td class="ver">${chain.map(esc).join(" &rarr; ")}${r.foreign
+          ? ` <span class="tag switch" title="the installed version is not listed in this channel, but its first entry accepts it">switch to subscribe</span>`
+          : ""}</td></tr>`;
+    }).join("") +
+    `</tbody></table>
+    <p class="footnote">&#9733; fewest steps using one channel for the whole path.
+    <span class="tag switch">switch to subscribe</span> means the installed version is not listed in that channel,
+    but its first hop accepts it via <code>skipRange</code>/<code>replaces</code> &mdash; point the Subscription at
+    the channel and OLM resolves the upgrade.</p></details>`;
+}
+
+/* ------------------------------------------------------------------ *
+ * 5. Bootstrap
+ * ------------------------------------------------------------------ */
+
+let OPERATORS = [];
+let DISCOVERY = null;
+let loadToken = 0;                 // guards against out-of-order operator loads
+
+const show = (id, on) => $(id).classList.toggle("hidden", !on);
+const human = b => b >= 1 << 30 ? (b / (1 << 30)).toFixed(1) + " GB"
+  : b >= 1 << 20 ? (b / (1 << 20)).toFixed(0) + " MB"
+  : (b / 1024).toFixed(0) + " KB";
+
+function showLoadError(msg) {
+  show("loader", false);
+  show("app", false);
+  show("loadError", true);
+  $("loadErrorMsg").textContent = " " + msg;
+  $("subtitle").textContent = "Catalog not loaded";
+}
+
+function populateOperators(disc) {
+  const live = disc.source === "live";
+  $("op").innerHTML = '<option value="">&mdash; select an operator &mdash;</option>' +
+    disc.operators.map(o => {
+      const meta = o.versions != null ? ` (${o.versions} versions, ${o.channels} channels)` : "";
+      return `<option value="${esc(o.name)}">${esc(o.name)}${esc(meta)}</option>`;
+    }).join("");
+
+  $("srcInfo").innerHTML = live
+    ? `reading <code>${esc(CATALOG_DIR)}/</code> directly &middot; ${disc.operators.length} operators found. ` +
+      `Large catalogs take a few seconds to parse; run <code>node build-index.mjs</code> to make switching instant.`
+    : `slim index <code>${esc(DATA_DIR)}/operators.json</code> &middot; ${disc.operators.length} operators` +
+      (disc.generated ? ` &middot; built ${esc(new Date(disc.generated).toLocaleString())}` : "");
+
+  $("subtitle").innerHTML = `${disc.operators.length} operators in <code>${esc(CATALOG_DIR)}/</code>` +
+    ` &middot; pick one to assess an upgrade`;
+
+  $("footNote").innerHTML = live
+    ? `reading <code>${esc(CATALOG_DIR)}/</code> live &middot; ${disc.operators.length} operators`
+    : `catalog index built ${esc(disc.generated ? new Date(disc.generated).toLocaleString() : "unknown")}` +
+      ` &middot; ${disc.operators.length} operators`;
+}
+
+async function selectOperator(name) {
+  const token = ++loadToken;
+  show("versionPanel", false);
+  show("result", false);
+  show("opError", false);
+  $("opHint").innerHTML = "";
+
+  if (!name) { show("opLoader", false); return; }
+
+  const op = OPERATORS.find(o => o.name === name);
+  show("opLoader", true);
+  $("opLoaderMsg").innerHTML = `Loading <code>${esc(name)}</code>&hellip;`;
+  show("opLoaderBar", false);
+  $("opLoaderBar").firstElementChild.style.width = "0%";
+
+  const onProgress = (read, total) => {
+    if (token !== loadToken) return;
+    show("opLoaderBar", true);
+    const pct = total ? Math.min(100, (read / total) * 100) : 0;
+    $("opLoaderBar").firstElementChild.style.width = pct + "%";
+    $("opLoaderMsg").innerHTML = `Streaming <code>${esc(name)}</code>&hellip; ${human(read)}` +
+      (total ? ` of ${human(total)}` : "");
+  };
+
+  try {
+    const { data, via } = await loadOperator(op, onProgress);
+    if (token !== loadToken) return;                 // a newer selection won
+    if (!data.channels.length) throw new Error("catalog contains no olm.channel records");
+
+    buildGraph(data);
+    populateVersions();
+    $("opHint").innerHTML = `<code>${esc(State.pkgName)}</code> &middot; ` +
+      `${State.versions.length} versions &middot; ${State.channels.length} channels &middot; ` +
+      `default <span class="tag">${esc(State.defaultChannel || "n/a")}</span>`;
+    $("srcInfo").innerHTML = `loaded from <code>${esc(via)}</code>`;
+
+    const url = new URL(location.href);
+    url.searchParams.set("op", name);
+    history.replaceState(null, "", url);
+
+    show("opLoader", false);
+    show("versionPanel", true);
+    show("result", true);
+    render();
+  } catch (err) {
+    if (token !== loadToken) return;
+    show("opLoader", false);
+    show("opError", true);
+    $("opErrorMsg").textContent = " " + err.message;
+  }
+}
+
+/* ---- version footer ---- */
+
+let VERSION_STATE = { value: null, source: null, reason: null };
+
+function parseVersionFile(text) {
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#") || line.startsWith(";")) continue;
+    const m = /^(?:version\s*[=:]\s*)?(.+)$/i.exec(line);
+    return (m ? m[1] : line).trim().replace(/^v/i, "");
+  }
+  return null;
+}
+
+// Three sources, best first:
+//   1. version.conf, read live   -- always current, needs HTTP
+//   2. window.APP_VERSION        -- from version.js, works on file://
+//   3. data/operators.json       -- recorded when the index was built
+async function loadVersion() {
+  const url = new URL(VERSION_FILE, location.href).href;
+  const baked = typeof window.APP_VERSION === "string" && window.APP_VERSION.trim()
+    ? { value: window.APP_VERSION.trim().replace(/^v/i, ""), source: "version.js" }
+    : null;
+
+  // fetch() is pointless on file:// -- it always fails there.
+  if (location.protocol !== "file:") {
+    try {
+      const res = await fetch(VERSION_FILE, { cache: "no-cache" });
+      if (res.ok) {
+        const v = parseVersionFile(await res.text());
+        if (v) return { value: v, source: VERSION_FILE };
+        if (!baked) return { value: null, reason: `${url} is empty or has no version line` };
+      } else if (!baked) {
+        return { value: null, reason: `${url} returned HTTP ${res.status}` +
+          (res.status === 404 ? " — not in the directory being served" : "") };
+      }
+    } catch (err) {
+      if (!baked) return { value: null, reason: `could not fetch ${url}: ${err.message}` };
+    }
+  }
+
+  if (baked) return baked;
+  return { value: null, reason:
+    `opened over file:// and version.js is missing — run "./build-index.sh --version-only" ` +
+    `to generate it from ${VERSION_FILE}, or serve this directory over HTTP` };
+}
+
+function renderVersion() {
+  const el = $("appVersion");
+  if (VERSION_STATE.value) {
+    el.textContent = "v" + VERSION_STATE.value;
+    el.classList.remove("unknown");
+    el.title = "from " + VERSION_STATE.source;
+  } else {
+    el.textContent = "version unknown";
+    el.classList.add("unknown");
+    el.title = VERSION_STATE.reason || "version unavailable";
+  }
+}
+
+async function showVersion() {
+  VERSION_STATE = await loadVersion();
+  if (!VERSION_STATE.value && VERSION_STATE.reason) {
+    console.warn("[version] " + VERSION_STATE.reason);
+  }
+  renderVersion();
+}
+
+// Called once the index is loaded, in case version.conf was unreachable.
+function adoptIndexVersion(disc) {
+  if (VERSION_STATE.value || !disc || !disc.version) return;
+  VERSION_STATE = { value: String(disc.version).replace(/^v/i, ""),
+                    source: `${DATA_DIR}/operators.json (recorded at index build)` };
+  renderVersion();
+}
+
+/* ---- about / setup panels ---- */
+
+const PANELS = ["about", "setup", "disclaimer"];
+
+function togglePanel(id, on) {
+  const open = on === undefined ? $(id).classList.contains("hidden") : on;
+  for (const other of PANELS) if (other !== id) show(other, false);  // one at a time
+  show(id, open);
+  if (open) $(id).scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+const toggleSetup = on => togglePanel("setup", on);
+
+function wirePanels() {
+  // Served over HTTP means the setup is already done, so that header link is
+  // just noise. It stays available at #setup, and the load-error panel has
+  // its own button for when serving works but the data is missing. About is
+  // always shown.
+  const served = location.protocol === "http:" || location.protocol === "https:";
+  show("setupLink", !served);
+
+  $("aboutLink").addEventListener("click", e => { e.preventDefault(); togglePanel("about"); });
+  $("aboutClose").addEventListener("click", () => togglePanel("about", false));
+  $("disclaimerLink").addEventListener("click", e => { e.preventDefault(); togglePanel("disclaimer"); });
+  $("disclaimerClose").addEventListener("click", () => togglePanel("disclaimer", false));
+  $("setupLink").addEventListener("click", e => { e.preventDefault(); toggleSetup(); });
+  $("setupClose").addEventListener("click", () => toggleSetup(false));
+  $("setupFromError").addEventListener("click", () => toggleSetup(true));
+
+  for (const btn of document.querySelectorAll(".cmd .copy")) {
+    btn.addEventListener("click", async () => {
+      const text = btn.parentElement.querySelector("pre").textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const r = document.createRange();
+        r.selectNodeContents(btn.parentElement.querySelector("pre"));
+        const sel = getSelection();
+        sel.removeAllRanges(); sel.addRange(r);
+      }
+      btn.textContent = "Copied";
+      btn.classList.add("done");
+      setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1400);
+    });
+  }
+
+  const hash = location.hash.replace("#", "");
+  if (PANELS.includes(hash)) togglePanel(hash, true);
+}
+
+async function boot() {
+  wirePanels();
+  try {
+    DISCOVERY = await discoverOperators();
+    OPERATORS = DISCOVERY.operators;
+    adoptIndexVersion(DISCOVERY);
+    populateOperators(DISCOVERY);
+
+    $("op").addEventListener("change", e => selectOperator(e.target.value));
+    for (const id of ["src", "tgt", "chan"]) $(id).addEventListener("change", render);
+
+    show("loader", false);
+    show("app", true);
+
+    const want = new URLSearchParams(location.search).get("op");
+    if (want && OPERATORS.some(o => o.name === want)) {
+      $("op").value = want;
+      await selectOperator(want);
+    }
+  } catch (err) {
+    showLoadError(err.message);
+  }
+}
+
+showVersion();   // independent of boot, so the footer shows even on load failure
+boot();
+</script>
+</body>
+</html>
